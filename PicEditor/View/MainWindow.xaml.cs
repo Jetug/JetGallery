@@ -1,4 +1,5 @@
 ﻿using DevExpress.Mvvm;
+using PicEditor.ViewModel;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,10 +25,42 @@ namespace PicEditor
         public MainWindow()
         {
             InitializeComponent();
-            //Global.Show += D;
-            //Application.Current.Dispatcher.Invoke();
+            MainWindowVM vm = (DataContext as MainWindowVM);
+
+            vm.LineUp = LineUp;
+            vm.LineDown = LineDown;
+
+            vm.GetMausePosOnScrollView = () => Mouse.GetPosition(scrollView);
+            vm.GetMausePosOnWindow = () => Mouse.GetPosition(MainWin);
+            vm.GetScrollViewHeigh = () => scrollView.ActualHeight;
         }
 
-        
+        private void LineUp(double offset)
+        {
+            Application.Current.Dispatcher.Invoke(() => 
+            scrollView.ScrollToVerticalOffset(scrollView.VerticalOffset - offset));
+        }
+
+        private void LineDown(double offset)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            scrollView.ScrollToVerticalOffset(scrollView.VerticalOffset + offset));
+        }
+
+        private void MainWin_KeyDown(object sender, KeyEventArgs e)
+        {
+
+        }
+
+        private void scrollView_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            //var pos = Mouse.GetPosition(scrollView);
+        }
+
+        private void scrollView_MouseMove(object sender, MouseEventArgs e)
+        {
+            var pos = Mouse.GetPosition(scrollView);
+            tb.Text = pos.ToString();
+        }
     }
 }

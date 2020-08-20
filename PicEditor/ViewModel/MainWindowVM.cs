@@ -1,13 +1,11 @@
 ﻿using DevExpress.Mvvm;
 using DevExpress.Mvvm.Native;
 using DevExpress.Mvvm.UI;
-//using GongSolutions.Wpf.DragDrop;
 using Microsoft.Win32;
 using PicEditor.Model;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -21,11 +19,53 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using NaturalSort.Extension;
 using Image = System.Windows.Controls.Image;
+using DevExpress.Mvvm.UI.Interactivity.Internal;
 
 namespace PicEditor.ViewModel
 {
     class MainWindowVM : ViewModelBase
     {
+        private const int defaultSize = 150;
+        //private const int defaultWidgh = 150;
+        //private const int defaultHeigh = 150;
+
+        public static ObservableCollection<ImageItem> ImageItems { get; set; } = new ObservableCollection<ImageItem>();
+        public static ObservableCollection<ImageItem> SelectedImageItems { get; set; } = new ObservableCollection<ImageItem>();
+
+        public string NewName { get; set; }
+        public int SortParamIndex { get; set; } = -1;
+        public Visibility PictureVisibility { get; set; } = Visibility.Hidden;
+        public BitmapImage PictureSource { get; set; }
+        public double ImageWidth { get; set; } = defaultSize;
+        public double ImageHeight { get; set; } = defaultSize;
+        public double ScrollViewHeight { get; set; }
+        public Point ScrollViewMousePos{ get; set; }
+        public BitmapImage DraggablePreview { get; set; }
+        public Thickness DraggableMargin { get; set; } = new Thickness(10, 415, 0, 0);
+        public Visibility DraggableVisibility { get; set; } = Visibility.Hidden;
+
+        #region Delegates
+        public delegate Point PointHandler();
+        public delegate double SizeHandler();
+
+        public Action<double> LineUp;
+        public Action<double> LineDown;
+        public PointHandler GetMausePosOnScrollView;
+        public PointHandler GetMausePosOnWindow;
+        public SizeHandler GetScrollViewHeigh;
+        #endregion
+        //public static ImageItem DraggableImage { get; set; } = null;
+
+        public string Str { get; set; } = "TEEEEEEEEEEEEEEEEEST";
+
+        private MainModel model = new MainModel();
+        private Global global = Global.getInstance();
+
+        public BitmapImage Prev
+        {
+            get => new BitmapImage();
+        }
+
         public MainWindowVM()
         {
             model.ShowPicture += (img, i) =>
@@ -40,10 +80,18 @@ namespace PicEditor.ViewModel
             {
                 for (int i = 0; i < count; i++)
                 {
-                    BitmapImage bmi = new BitmapImage(new Uri(@"C:\Users\kserg\OneDrive\Рабочий стол\Images\Flopp.png"));
+                    BitmapImage bmi = new BitmapImage();
                     ImageItems.Add(new ImageItem(bmi));
                 }
             };
+
+            global.ShowPreview = (prev) =>
+            {
+                DraggablePreview = prev;
+                DraggableVisibility = Visibility.Visible;
+            };
+
+            global.HidePreview = () => DraggableVisibility = Visibility.Hidden; 
 
             ImageItem.SetVisibility = (pic) =>
             {
@@ -52,26 +100,13 @@ namespace PicEditor.ViewModel
             };
         }
 
-        enum Sorting
-        {
-            Name,
-            CreationDate,
-            ModificationDate
-        }
-
-        private MainModel model = new MainModel();
-
-        public static ObservableCollection<ImageItem> ImageItems { get; set; } = new ObservableCollection<ImageItem>();
-        public string NewName { get; set; }
-        public int SortParamIndex { get; set; } = -1;
-        public Visibility PictureVisibility { get; set; } = Visibility.Hidden;
-        public BitmapImage PictureSource { get; set; }
-
+        #region Commands
         public ICommand Ok
         {
             get => new DelegateCommand(() =>
             {
-                PictureVisibility = Visibility.Visible;
+                //LineDown();
+                //PictureVisibility = Visibility.Visible;
                 //Clicks++;
                 //for (int i = 0; i < 1000; i++)
                 //{
@@ -94,7 +129,7 @@ namespace PicEditor.ViewModel
             get => new DelegateCommand(() =>
             {
                 ImageItems.Clear();
-                model.GetPictures(@"C:\Users\kserg\OneDrive\Рабочий стол\imgs\TestThink");//, () => SortBy(Sorting.Name));
+                //model.GetPictures(@"C:\Users\kserg\OneDrive\Рабочий стол\imgs\TestThink", SortingType.Name);//, () => SortBy(Sorting.Name));
             });
         }
 
@@ -106,7 +141,7 @@ namespace PicEditor.ViewModel
                 if(fbd.ShowDialog() == DialogResult.OK)
                 {
                     ImageItems.Clear();
-                    model.GetPictures(fbd.SelectedPath);
+                    model.GetPictures(fbd.SelectedPath, SortingType.Name);
                 }
             });
         }
@@ -126,40 +161,135 @@ namespace PicEditor.ViewModel
                 switch (SortParamIndex)
                 {
                     case 0:
-                        SortBy(Sorting.Name);
+                        SortBy(SortingType.Name);
                         break;
                     case 1:
-                        SortBy(Sorting.CreationDate);
+                        SortBy(SortingType.CreationDate);
                         break;
                     case 2:
-                        SortBy(Sorting.ModificationDate);
+                        SortBy(SortingType.ModificationDate);
                         break;
                 }
+            });
+        }
+
+        public ICommand WindowKeyDown
+        {
+            get => new DCommand((obj) =>
+            {
+                //System.Windows.Input.KeyEventArgs key = (System.Windows.Input.KeyEventArgs)obj;
+                //if(key.Key == Key.Escape)
+                //{
+                //    for (int i = 0; i < ImageItems.Count; i++)
+                //    {
+                //        ImageItem it = ImageItems[i];
+                //        if (it.IsSelected == true)
+                //        {
+                //            it.IsSelected = false;
+                //            ImageItems[i] = it;
+                //            ImageItems[i].Doot();
+                //        }
+                //    }
+                //}
+            });
+        }
+
+        public ICommand WindowLeftButtonUp
+        {
+            get => new DCommand((obj) =>
+            {
+                global.DraggableImage = null;
+            });
+        }
+
+        public ICommand Scroll
+        {
+            get => new DCommand((obj) =>
+            {
+                if (Mouse.LeftButton == MouseButtonState.Pressed && global.DraggableImage != null)
+                {
+                    const double trigger = 50;
+                    const double offset = 5;
+                    const int sleep = 1;
+                    Point pos = ScrollViewMousePos;
+
+                    Thread thread = new Thread(() =>
+                    {
+                        while (ScrollViewMousePos.Y <= trigger)
+                        {
+                            LineUp(offset);
+                            Thread.Sleep(sleep);
+                        }
+                        while (ScrollViewMousePos.Y >= GetScrollViewHeigh() - trigger)
+                        {
+                            LineDown(offset);
+                            Thread.Sleep(sleep);
+                        }
+                    });
+
+                    thread.Start();
+
+                    //if (pos.Y <= trigger)
+                    //{
+                    //    LineUp();
+                    //}
+                    //if(pos.Y >= GetScrollViewHeigh() - trigger)
+                    //{
+                    //    LineDown();
+                    //}
+                }
+            });
+        }
+        
+        public ICommand DragOver
+        {
+            get => new DCommand((obj) =>
+            {
+                //double tolerance = 30;
+                //double posY = GetMausePosOnScrollView().Y;
+
+                //if (posY < tolerance && posY >= 0)
+                //{
+                //    LineUp();
+                //}
+            });
+        }
+
+        public ICommand MD
+        {
+            get => new DCommand((obj) =>
+            {
+                double posY = GetMausePosOnScrollView().Y;
             });
         }
 
         public ICommand WinMouseMove
         {
             get => new DCommand((obj) =>
-            { 
+            {
                 var e = (System.Windows.Input.MouseEventArgs)obj;
-                //double d1 = e.GetPosition().X;
-                //RectMargin);
+
+                if(Mouse.LeftButton == MouseButtonState.Pressed && global.DraggableImage != null)
+                {
+                    Point pos = GetMausePosOnWindow();
+                    DraggableMargin = new Thickness(pos.X - global.ImageMouseX, pos.Y - global.ImageMouseY, 0, 0);
+                }
             });
         }
+        #endregion
 
-        private void SortBy(Sorting sorting)
+        private void SortBy(SortingType sorting)
         {
             IOrderedEnumerable<ImageItem> temp = null;
             switch (sorting)
             {
-                case Sorting.Name:
+                case SortingType.Name:
                     temp = ImageItems.OrderBy(p => p.Name, StringComparison.OrdinalIgnoreCase.WithNaturalSort());
                     break;
-                case Sorting.CreationDate:
+                case SortingType.CreationDate:
                     temp = ImageItems.OrderBy(p => p.CreationDate);
                     break;
-                case Sorting.ModificationDate:
+                case SortingType.ModificationDate:
                     temp = ImageItems.OrderBy(p => p.ModificationDate);
                     break;
             }

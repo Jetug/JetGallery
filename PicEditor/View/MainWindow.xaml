@@ -5,16 +5,16 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:i="clr-namespace:System.Windows.Interactivity;assembly=System.Windows.Interactivity"
         xmlns:dd="urn:gong-wpf-dragdrop"
-        xmlns:j="http://www.galasoft.ch/mvvmlight"
+        xmlns:j="http://www.galasoft.ch/mvvmlight"  
         xmlns:ndd="clr-namespace:NDragDrop;assembly=NDragDrop"
-        xmlns:local="clr-namespace:PicEditor.ViewModel"
-        xmlns:pic ="clr-namespace:JetControlLibrary;assembly=JetControlLibrary"
-        xmlns:view="clr-namespace:PicEditor.View"
+        xmlns:local="clr-namespace:PicEditor.View"
+        xmlns:b="clr-namespace:PicEditor.Behaviours"
         xmlns:vm="clr-namespace:PicEditor.ViewModel"
+        xmlns:pic="clr-namespace:PicControls;assembly=PicControls"
         mc:Ignorable="d" Title="MainWindow" 
-        Width="690" Height="690.2" 
+        Width="690" Height="690" 
         MinWidth="690" MinHeight="665"
-        Name="MainWin">
+        Name="MainWin" KeyDown="MainWin_KeyDown">
     <Window.DataContext>
         <vm:MainWindowVM/>
     </Window.DataContext>
@@ -27,19 +27,33 @@
         <i:EventTrigger EventName="Loaded">
             <i:InvokeCommandAction Command="{Binding WindowLoaded}"/>
         </i:EventTrigger>
+        <i:EventTrigger EventName="KeyDown">
+            <j:EventToCommand
+                Command="{Binding WindowKeyDown}"
+                PassEventArgsToCommand="True"/>
+        </i:EventTrigger>
+        <i:EventTrigger EventName="MouseLeftButtonUp">
+            <i:InvokeCommandAction 
+                Command="{Binding WindowLeftButtonUp}"/>
+        </i:EventTrigger>
     </i:Interaction.Triggers>
+    
     <Grid Background="#FF4F4F4F">
         <Button 
             Command="{Binding Ok}"
             Content="Button"
             HorizontalAlignment="Left" 
-            Margin="25,72,0,0" 
+            Margin="25,55,0,0" 
             VerticalAlignment="Top"
             Width="95" Height="45"/>
         <ScrollViewer 
-            HorizontalAlignment="Left" VerticalAlignment="Top"
+            Name="scrollView"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
             Margin="165,55,0,20"
-            MinHeight="580" MinWidth="500">
+            MinHeight="580" MinWidth="500"
+            MouseDown="scrollView_MouseDown" 
+            MouseMove="scrollView_MouseMove">
             <ItemsControl ItemsSource="{Binding ImageItems}" 
                           HorizontalAlignment="Left" 
                           VerticalAlignment="Top"
@@ -53,40 +67,79 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Grid Height="165">
-                            <Image Source="{Binding Icon}" 
-                                   Width="{Binding Width}" Height="{Binding Height}"
-                                   AllowDrop="True" Margin="0,0,13,0">
-                                <i:Interaction.Triggers>
-                                    <i:EventTrigger EventName="MouseLeftButtonDown">
-                                        <i:InvokeCommandAction 
-                                            Command="{Binding ImageClick}"
-                                            CommandParameter="{Binding}"/>
-                                    </i:EventTrigger>
-                                    <i:EventTrigger EventName="Drop">
-                                        <j:EventToCommand
-                                            Command="{Binding ImageDrop}"
-                                            PassEventArgsToCommand="True"/>
-                                    </i:EventTrigger>
-                                    <i:EventTrigger EventName="MouseLeftButtonUp">
-                                        <i:InvokeCommandAction 
-                                            Command="{Binding ShowFullImage}"/>
-                                    </i:EventTrigger>
-                                </i:Interaction.Triggers>
-                            </Image>
-                            <TextBlock 
-                                Text="{Binding Name}"
-                                Foreground="#FF056EB6"
-                                FontSize="12"
-                                Width="auto" Height="15"
-                                MaxWidth="150"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Top"
-                                Margin="-13,155,0,-5"/>
-                        </Grid>
+                        <pic:PreviewControl
+                            Width="{Binding DataContext.ImageWidth,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                            Height="{Binding DataContext.ImageHeight,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                            Margin="0,0,13,13"
+                            ImageSource="{Binding Preview}"
+                            SelectionVisibility="Visible"
+                            ImageName="{Binding Name}"
+                            IsSelected="{Binding IsSelected}"
+                            OnSelected="{Binding ImageSelected}"
+                            OnUnselected="{Binding ImageUnselected}"
+                            PreviewMouseMoveCommand="{Binding ImageMouseMove}">
+                            <i:Interaction.Behaviors>
+                                <b:MVVMBehaviour
+                                    MousePos="{Binding ImageMousePos, Mode=OneWayToSource}"/>
+                            </i:Interaction.Behaviors>
+                            <i:Interaction.Triggers>
+
+                                <i:EventTrigger EventName="Drop">
+                                    <j:EventToCommand
+                                        Command="{Binding ImageDrop}"
+                                        PassEventArgsToCommand="True"/>
+                                </i:EventTrigger>
+
+                                <i:EventTrigger EventName="MouseLeftButtonUp">
+                                    <i:InvokeCommandAction 
+                                        Command="{Binding ImageLeftButtonUp}"/>
+                                </i:EventTrigger>
+
+                                <i:EventTrigger EventName="MouseLeftButtonDown">
+                                    <i:InvokeCommandAction 
+                                        Command="{Binding ImageLeftButtonDown}"/>
+                                </i:EventTrigger>
+                                
+                                <i:EventTrigger EventName="KeyDown">
+                                    <j:EventToCommand
+                                        Command="{Binding ImageKeyDown}"
+                                        PassEventArgsToCommand="True"/>
+                                </i:EventTrigger>
+
+                                <i:EventTrigger EventName="MouseEnter">
+                                    <i:InvokeCommandAction 
+                                        Command="{Binding ImageMouseEnter}"/>
+                                </i:EventTrigger>
+
+                            </i:Interaction.Triggers>
+                        </pic:PreviewControl>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <i:Interaction.Behaviors>
+                <b:MVVMBehaviour
+                    MousePos="{Binding ScrollViewMousePos, Mode=OneWayToSource}"
+                    ActualHeight="{Binding ScrollViewHeight, Mode=OneWayToSource}"/>
+            </i:Interaction.Behaviors>
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="MouseMove">
+                    <i:InvokeCommandAction 
+                        Command="{Binding Scroll}"/>
+                </i:EventTrigger>
+                <i:EventTrigger EventName="DragOver">
+                    <i:InvokeCommandAction 
+                        Command="{Binding DragOver}"
+                        CommandParameter="{Binding}"/>
+                </i:EventTrigger>
+
+                <i:EventTrigger EventName="MouseDown">
+                    <i:InvokeCommandAction 
+                        Command="{Binding MD}"/>
+                </i:EventTrigger>
+
+            </i:Interaction.Triggers>
         </ScrollViewer>
         <Button 
             Content="Открыть &#xD;&#xA;  папку"
@@ -97,14 +150,8 @@
             Width="95" Height="51"
             Foreground="#FF056EB6"
             HorizontalContentAlignment="Center"
-            VerticalContentAlignment="Center"
-            />
-        <Image 
-            HorizontalAlignment="Left" 
-            Height="150" Width="150"
-            Margin="6,126,0,0"
-            VerticalAlignment="Top"
-            />        
+            VerticalContentAlignment="Center">
+        </Button>
         <ComboBox 
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
@@ -114,13 +161,13 @@
             <TextBlock Text="По имени"/>
             <TextBlock Text="По дате созданя"/>
             <TextBlock Text="По дате изменения"/>
-            
+
             <i:Interaction.Triggers>
                 <i:EventTrigger EventName="SelectionChanged">
                     <i:InvokeCommandAction Command="{Binding SortParamChanged}"/>
                 </i:EventTrigger>
             </i:Interaction.Triggers>
-            
+
             <!--<ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <TextBlock Text=""></TextBlock>
@@ -131,32 +178,77 @@
             Command="{Binding Sort}"
             Content="Sort" 
             HorizontalAlignment="Left" 
-            Margin="297,14,0,0" 
+            Margin="25,14,0,0" 
             VerticalAlignment="Top"
             Width="56" Height="24"/>
         <TextBox 
             Text="{Binding NewName}"
-            HorizontalAlignment="Left"
+            HorizontalAlignment="Right"
             VerticalAlignment="Top"
             Height="24" Width="142"
-            Margin="415,14,0,0"
+            Margin="0,14,185,0"
             TextWrapping="NoWrap"/>
         <Button 
             Content="Rename"
             Command="{Binding RenameAll}"
-            HorizontalAlignment="Left" VerticalAlignment="Top" 
-            Margin="574,16,0,0" Width="75"/>
-        <!--<pic:TestControl
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top" 
+            Margin="0,14,92,0" 
+            Width="75" Height="24"/>
+
+        <Menu 
+            HorizontalAlignment="Right"
+            Height="24" Width="50"
+            Margin="0,14,17,0" 
+            VerticalAlignment="Top">
+            <MenuItem 
+                Header="Опции"
+                Height="24" Width="52"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+                <MenuItem Header="Переименовать"/>
+                <MenuItem Header="Сортировать">
+                    <MenuItem Header="По имени"/>
+                    <MenuItem Header="По дате созданя"/>
+                    <MenuItem Header="По дате изменения"/>
+                </MenuItem>
+            </MenuItem>
+        </Menu>
+        <TextBlock 
+            Name="tb"
+            HorizontalAlignment="Left"
+            Margin="35,160,0,0"
+            TextWrapping="Wrap"
+            Text="" 
+            VerticalAlignment="Top"
+            Height="35" Width="65"/>
+
+        <TextBlock HorizontalAlignment="Left" 
+                   Margin="35,220,0,0"
+                   TextWrapping="Wrap"
+                   Text="{Binding ImageMouseX}" 
+                   VerticalAlignment="Top" Height="29" Width="39"/>
+        <TextBlock HorizontalAlignment="Left" 
+                   Margin="79,220,0,0"
+                   TextWrapping="Wrap"
+                   Text="{Binding ImageMouseY}" 
+                   VerticalAlignment="Top" Height="29" Width="41"/>
+
+        <pic:PreviewControl
+            ImageSource="{Binding DraggablePreview}"
+            Visibility="{Binding DraggableVisibility}"
+            ImageName="{Binding DraggableName}"
+            Height="150" Width="150" 
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Margin="{Binding DraggableMargin}"
+            IsHitTestVisible="False"/>
+
+        <pic:PictureControl
             BackgroundOpacity="0.9" 
             Visibility="{Binding PictureVisibility}"
             ImageSource="{Binding PictureSource}"
             BGMouseLeftButtonDown="{Binding Test}"
-            />-->
-        <view:PictureControl
-            BackgroundOpacity="0.9" 
-            Visibility="{Binding PictureVisibility}"
-            ImageSource="{Binding PictureSource}"
-            BGMouseLeftButtonDown="{Binding Test}"
-            ImageHeight="550" ImageWidth="550"/>
+            ImageHeight="600" ImageWidth="600"/>
     </Grid>
 </Window>
